@@ -1,6 +1,8 @@
 import random
 from collections import deque
 
+from .data import PIECE_DATA
+
 BOARD_WIDTH = 10
 BOARD_HEIGHT = 40
 BOARD_DISPLAY_HEIGHT = 21
@@ -13,55 +15,6 @@ PIECE_S = 4
 PIECE_Z = 5
 PIECE_T = 6
 PIECE_O = 7
-
-# For each piece, for each rotation, what cells are part of the piece (form (x,y) relative
-# to BOTTOM-RIGHT of the bounding box)
-PIECE_DATA = (
-    # null piece
-    (),
-    # I piece
-    (
-        ((0, 2), (1, 2), (2, 2), (3, 2)),
-        ((2, 0), (2, 1), (2, 2), (2, 3)),
-        ((0, 1), (1, 1), (2, 1), (3, 1)),
-        ((1, 0), (1, 1), (1, 2), (1, 3)),
-    ),
-    # L piece
-    (
-        ((0, 1), (1, 1), (2, 1), (2, 2)),
-        ((1, 2), (1, 1), (1, 0), (2, 0)),
-        ((0, 0), (0, 1), (1, 1), (2, 1)),
-        ((0, 2), (1, 2), (1, 1), (1, 0)),
-    ),
-    # J piece
-    (
-        ((0, 2), (0, 1), (1, 1), (2, 1)),
-        ((2, 2), (1, 2), (1, 1), (1, 0)),
-        ((0, 1), (1, 1), (2, 1), (2, 0)),
-        ((0, 0), (1, 0), (1, 1), (1, 2)),
-    ),
-    # S piece
-    (
-        ((0, 1), (1, 1), (1, 2), (2, 2)),
-        ((1, 2), (1, 1), (2, 1), (2, 0)),
-        ((0, 0), (1, 0), (1, 1), (2, 1)),
-        ((0, 2), (0, 1), (1, 1), (1, 0)),
-    ),
-    # Z piece
-    (
-        ((0, 2), (1, 2), (1, 1), (2, 1)),
-        ((1, 0), (1, 1), (2, 1), (2, 2)),
-        ((0, 1), (1, 1), (1, 0), (2, 0)),
-        ((0, 0), (0, 1), (1, 1), (1, 2)),
-    ),
-    # T piece
-    (
-        ((1, 1), (0, 1), (1, 2), (2, 1)),
-        ((1, 1), (1, 2), (2, 1), (1, 0)),
-        ((1, 1), (2, 1), (1, 0), (0, 1)),
-        ((1, 1), (1, 0), (0, 1), (1, 2)),
-    ),
-)
 
 _FULL_SEVEN_BAG = [PIECE_I, PIECE_L, PIECE_J, PIECE_S, PIECE_Z, PIECE_T, PIECE_O]
 
@@ -98,9 +51,9 @@ class TetrisGame:
         self._extend_piece_queue()
 
         self._current_piece = self._piece_queue.popleft()
-        self._piece_rot: int = 0
-        self._piece_bb_x: int = 4
-        self._piece_bb_y: int = 22
+        self._piece_rot: int
+        self._piece_bb_x: int
+        self._piece_bb_y: int
         self._place_new_piece()
     
     def falling_piece_cells(self) -> list[tuple[int, int]]:
@@ -110,8 +63,42 @@ class TetrisGame:
         a = [(x + self._piece_bb_x, y + self._piece_bb_y) for x, y in PIECE_DATA[self._current_piece][self._piece_rot]]
         return a
 
-    def tick(self):
+    def tick_gravity(self):
         self._piece_bb_y -= 1
+
+    def shift_left(self):
+        """
+        Attempts to move the falling piece to the left
+        """
+        for x, _ in self.falling_piece_cells():
+            # checking if any pieces would be out of bounds
+            if x <= 0:
+                return
+        self._piece_bb_x -= 1
+
+    def shift_right(self):
+        """
+        Attempts to move the falling piece to the right
+        """
+        for x, _ in self.falling_piece_cells():
+            # checking if any pieces would be out of bounds
+            if x >= BOARD_WIDTH - 1:
+                return
+        self._piece_bb_x += 1
+    
+    def rotate_cw(self):
+        """
+        Attempts to rotate the falling piece clockwise
+        """
+        # TODO SRS
+        self._piece_rot = (self._piece_rot + 1) % 4
+
+    def rotate_ccw(self):
+        """
+        Attempts to rotate the falling piece counter-clockwise
+        """
+        # TODO SRS
+        self._piece_rot = (self._piece_rot - 1) % 4
     
     def current_piece(self) -> int:
         return self._current_piece
@@ -120,7 +107,7 @@ class TetrisGame:
         """
         """
         self._piece_rot: int = 0
-        self._piece_bb_x = 4
+        self._piece_bb_x = 3
         self._piece_bb_y = 22
     
     def _extend_piece_queue(self):

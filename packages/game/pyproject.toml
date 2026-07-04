@@ -1,0 +1,12 @@
+[project]
+name = "tetris_game"
+version = "1.0.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Jaxson Pahukula", email = "jaxpahu@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.9.29,<0.10.0"]
+build-backend = "uv_build"

@@ -1,0 +1,16 @@
+[project]
+name = "tetris_cli_player"
+version = "1.0.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Jaxson Pahukula", email = "jaxpahu@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = [
+    "tetris-game~=1.0.0",
+]
+
+[project.scripts]
+play-tetris = "tetris_cli_player:main"
+
+[tool.uv.sources]
+tetris-game = { workspace = true }

@@ -1,0 +1,31 @@
+version = 1
+revision = 3
+requires-python = ">=3.13"
+
+[manifest]
+members = [
+    "tetris",
+    "tetris-cli-player",
+    "tetris-game",
+]
+
+[[package]]
+name = "tetris"
+version = "1.0.0"
+source = { virtual = "." }
+
+[[package]]
+name = "tetris-cli-player"
+version = "1.0.0"
+source = { editable = "packages/cli_player" }
+dependencies = [
+    { name = "tetris-game" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "tetris-game", editable = "packages/game" }]
+
+[[package]]
+name = "tetris-game"
+version = "1.0.0"
+source = { editable = "packages/game" }
