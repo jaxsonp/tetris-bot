@@ -1,0 +1,7 @@
+[project]
+name = "tetris_player_cli"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["tetris_game==0.1.0"]
