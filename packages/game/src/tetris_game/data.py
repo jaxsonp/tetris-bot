@@ -1,6 +1,6 @@
 
-# For each piece, for each rotation, what cells are part of the piece (form (x,y) relative
-# to BOTTOM-RIGHT of the bounding box)
+# For each piece, for each rotation, what cells are part of the piece (of form
+# (x,y) relative to BOTTOM-RIGHT of the bounding box)
 PIECE_DATA = (
     # null piece
     (),

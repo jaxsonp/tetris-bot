@@ -6,6 +6,7 @@ readme = "README.md"
 authors = [{ name = "Jaxson Pahukula", email = "jaxpahu@gmail.com" }]
 requires-python = ">=3.13"
 dependencies = [
+    "evdev>=1.9.3",
     "tetris-game~=1.0.0",
 ]
 

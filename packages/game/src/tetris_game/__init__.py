@@ -1,6 +1,9 @@
+# ruff: noqa: E741
+
 import random
 from collections import deque
 import dataclasses
+from enum import IntEnum
 
 from .data import PIECE_DATA
 
@@ -8,16 +11,17 @@ BOARD_WIDTH = 10
 BOARD_HEIGHT = 40
 BOARD_DISPLAY_HEIGHT = 21
 
-PIECE_NULL = 0
-PIECE_I = 1
-PIECE_L = 2
-PIECE_J = 3
-PIECE_S = 4
-PIECE_Z = 5
-PIECE_T = 6
-PIECE_O = 7
+class Piece(IntEnum):
+    NULL = 0
+    I = 1
+    L = 2
+    J = 3
+    S = 4
+    Z = 5
+    T = 6
+    O = 7
 
-_FULL_SEVEN_BAG = [PIECE_I, PIECE_L, PIECE_J, PIECE_S, PIECE_Z, PIECE_T, PIECE_O]
+_FULL_SEVEN_BAG = [Piece.I, Piece.L, Piece.J, Piece.S, Piece.Z, Piece.T, Piece.O]
 
 @dataclasses.dataclass
 class TetrisGameState:
@@ -58,7 +62,7 @@ class TetrisGame:
     def __init__(self):
 
         # init board
-        self._board: list[int] = [PIECE_NULL] * (BOARD_WIDTH * BOARD_HEIGHT)
+        self._board: list[int] = [Piece.NULL] * (BOARD_WIDTH * BOARD_HEIGHT)
 
         self._score: int = 123000
 
