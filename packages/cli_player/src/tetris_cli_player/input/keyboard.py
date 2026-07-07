@@ -5,6 +5,14 @@ from typing import Callable
 
 # from .terminal import enable_raw_mode, disable_raw_mode
 
+if os.name == "posix":
+    import evdev
+elif os.name == "nt":
+    pass
+else:
+    raise NotImplementedError(f"Unsupported OS: \"{os.name}\"")
+
+
 _daemon: threading.Thread | None = None
 
 
@@ -37,15 +45,12 @@ def start_keyboard_input_daemon(callback: Callable):
         daemon_func = _posix_keyboard_input_daemon
     elif os.name == "nt":
         daemon_func = _windows_keyboard_input_daemon
-    else:
-        raise NotImplementedError(f"Unsupported OS: \"{os.name}\"")
 
     _daemon = threading.Thread(target=daemon_func, args=(callback,), name="keyboard_listener_daemon", daemon=True)
     _daemon.start()
 
 
 def _posix_keyboard_input_daemon(callback: Callable):
-    import evdev
 
     # find a device that looks like a keyboard
     devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
@@ -74,10 +79,11 @@ def _posix_keyboard_input_daemon(callback: Callable):
             if event.type == evdev.ecodes.EV_KEY:
                 key_event: evdev.KeyEvent = evdev.categorize(event)
                 
-                callback(
-                    SCANCODE_TO_KEY.get(key_event.scancode, Key.UNKNOWN),
-                    key_event.keystate != key_event.key_up
-                )
+                if key_event.keystate == key_event.key_down:
+                    callback(SCANCODE_TO_KEY.get(key_event.scancode, Key.UNKNOWN), True)
+                elif key_event.keystate == key_event.key_up:
+                    callback(SCANCODE_TO_KEY.get(key_event.scancode, Key.UNKNOWN), False)
+                # else: # key hold event
 
     finally:
         keyboard.ungrab()

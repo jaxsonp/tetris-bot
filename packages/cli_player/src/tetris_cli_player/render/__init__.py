@@ -51,7 +51,7 @@ PIECE_CHAR_MAP: dict[int, str] = {
     Piece.O: "O",
 }
 
-def visualize_state(state: TetrisGameState, show_help=True):
+def visualize_state(state: TetrisGameState):
     global _last_shown_state
 
     if _last_shown_state is None:
