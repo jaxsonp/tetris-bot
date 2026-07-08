@@ -1,6 +1,6 @@
 import sys
 
-from tetris_game import TetrisGameState, Piece, BOARD_WIDTH, BOARD_DISPLAY_HEIGHT
+from tetris_game import TetrisGame, TetrisGameState, Piece
 
 from . import color
 
@@ -51,6 +51,9 @@ PIECE_CHAR_MAP: dict[int, str] = {
     Piece.O: "O",
 }
 
+BOARD_WIDTH = TetrisGame.BOARD_WIDTH
+BOARD_DISPLAY_HEIGHT = 21
+
 cursor_x = 0
 cursor_y = 0
 
@@ -86,23 +89,23 @@ def visualize_state(state: TetrisGameState):
             sys.stdout.write(" ┃" + (" " * (BOARD_WIDTH * 2)))
             match y:
                 case 0:
-                    sys.stdout.write("┠Hold╮\n")
+                    sys.stdout.write("┠Hold\n")
                 case 1:
-                    sys.stdout.write(f"┃  {PIECE_FG_COLOR_MAP[state.held_piece]}{PIECE_CHAR_MAP[state.held_piece]}{color.FG_RESET} │\n")
+                    sys.stdout.write(f"┃ {PIECE_FG_COLOR_MAP[state.held_piece]}{PIECE_CHAR_MAP[state.held_piece]}{color.FG_RESET} │\n")
                 case 2:
-                    sys.stdout.write("┠────╯\n")
+                    sys.stdout.write("┠───╯\n")
                 case 3:
-                    sys.stdout.write("┠Next╮\n")
+                    sys.stdout.write("┠Next\n")
                 case 4:
-                    sys.stdout.write(f"┃  {PIECE_FG_COLOR_MAP[state.next_piece]}{PIECE_CHAR_MAP[state.next_piece]}{color.FG_RESET} │\n")
+                    sys.stdout.write(f"┃ {PIECE_FG_COLOR_MAP[state.next_piece]}{PIECE_CHAR_MAP[state.next_piece]}{color.FG_RESET} │\n")
                 case 5:
-                    sys.stdout.write("┠────╯\n")
+                    sys.stdout.write("┠───╯\n")
                 case _:
                     sys.stdout.write("┃\n")
         sys.stdout.write(f" ┡{"━" * (BOARD_WIDTH * 2)}┩\n")
         sys.stdout.write(f" │ Score: {state.score:>{(BOARD_WIDTH * 2) - 9}} │\n")
         sys.stdout.write(f" │ Level: {state.level:>{(BOARD_WIDTH * 2) - 9}} │\n")
-        sys.stdout.write(f" │ Lines: {100:>{(BOARD_WIDTH * 2) - 9}} │\n")
+        sys.stdout.write(f" │ Lines: {state.lines_cleared:>{(BOARD_WIDTH * 2) - 9}} │\n")
         sys.stdout.write(f" ╰{"─" * (BOARD_WIDTH * 2)}╯{color.RESET}\n")
 
         # help text
@@ -115,7 +118,7 @@ def visualize_state(state: TetrisGameState):
         cursor_y = 0
     
     # show falling piece
-    for block_x, block_y in state.falling_piece_cells:
+    for block_x, block_y in state.falling_piece_cells():
         state.set_board(block_x, block_y, state.falling_piece)
     
     # calculate diffs from bottom to top (list of (x, y, value))
@@ -127,21 +130,34 @@ def visualize_state(state: TetrisGameState):
             if state.get_board(x, y) != _last_shown_state.get_board(x, y):
                 changes.append((x, y, state.get_board(x, y)))
     
-    # draw changed cells
+    # redraw changed cells
     for col, row, value in changes:
-        move_cursor(2 + (col * 2), 5 + row)
+        move_cursor(2 + (col * 2), 6 + row)
         sys.stdout.write(f"{PIECE_BG_COLOR_MAP[value]}  {color.BG_RESET}")
         cursor_x += 2
 
-    # held / next piece
+    # redraw changed game state values
     if state.held_piece != _last_shown_state.held_piece:
-        move_cursor((BOARD_WIDTH * 2) + 5, BOARD_DISPLAY_HEIGHT + 4)
+        move_cursor((BOARD_WIDTH * 2) + 4, BOARD_DISPLAY_HEIGHT + 4)
         sys.stdout.write(f"{PIECE_FG_COLOR_MAP[state.held_piece]}{PIECE_CHAR_MAP[state.held_piece]}{color.FG_RESET}")
         cursor_x += 1
     if state.next_piece != _last_shown_state.next_piece:
-        move_cursor((BOARD_WIDTH * 2) + 5, BOARD_DISPLAY_HEIGHT + 1)
+        move_cursor((BOARD_WIDTH * 2) + 4, BOARD_DISPLAY_HEIGHT + 1)
         sys.stdout.write(f"{PIECE_FG_COLOR_MAP[state.next_piece]}{PIECE_CHAR_MAP[state.next_piece]}{color.FG_RESET}")
         cursor_x += 1
+
+    if state.score != _last_shown_state.score:
+        move_cursor(10, 4)
+        sys.stdout.write(str(state.score).rjust((BOARD_WIDTH * 2) - 9))
+        cursor_x += (BOARD_WIDTH * 2) - 9
+    if state.level != _last_shown_state.level:
+        move_cursor(10, 3)
+        sys.stdout.write(str(state.level).rjust((BOARD_WIDTH * 2) - 9))
+        cursor_x += (BOARD_WIDTH * 2) - 9
+    if state.lines_cleared != _last_shown_state.lines_cleared:
+        move_cursor(10, 2)
+        sys.stdout.write(str(state.lines_cleared).rjust((BOARD_WIDTH * 2) - 9))
+        cursor_x += (BOARD_WIDTH * 2) - 9
     
     
     # reset cursor
