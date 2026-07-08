@@ -5,7 +5,7 @@ from collections import deque
 import dataclasses
 from enum import IntEnum
 
-from .data import PIECE_DATA
+from tetris_game import game_data
 
 BOARD_WIDTH = 10
 BOARD_HEIGHT = 40
@@ -27,9 +27,13 @@ _FULL_SEVEN_BAG = [Piece.I, Piece.L, Piece.J, Piece.S, Piece.Z, Piece.T, Piece.O
 class TetrisGameState:
 
     score: int
-    next_piece: int
+    level: int
+    speed: float
+    next_piece: Piece
+    held_piece: Piece
+    held_already: bool
 
-    falling_piece: int
+    falling_piece: Piece
     falling_piece_rot: int
     falling_piece_bb_x: int
     falling_piece_bb_y: int
@@ -62,14 +66,18 @@ class TetrisGame:
     def __init__(self):
 
         # init board
-        self._board: list[int] = [Piece.NULL] * (BOARD_WIDTH * BOARD_HEIGHT)
+        self._board: list[Piece] = [Piece.NULL] * (BOARD_WIDTH * BOARD_HEIGHT)
 
-        self._score: int = 123000
+        self._score: int = 0
+        self._level: int = 1
 
-        self._piece_queue: deque[int] = deque()
+        self._held_piece: Piece = Piece.NULL
+        self._held_already = False
+
+        self._piece_queue: deque[Piece] = deque()
         self._extend_piece_queue()
 
-        self._falling_piece = self._piece_queue.popleft()
+        self._falling_piece: Piece
         self._falling_piece_rot: int
         self._falling_piece_bb_x: int
         self._falling_piece_bb_y: int
@@ -82,7 +90,11 @@ class TetrisGame:
         return TetrisGameState(
             board_data=list(self._board),
             score=self._score,
+            level=self._level,
+            speed=self._get_speed(),
             next_piece=self._piece_queue[0],
+            held_piece=self._held_piece,
+            held_already=self._held_already,
             falling_piece_cells=self.falling_piece_cells(),
             falling_piece=self._falling_piece,
             falling_piece_rot=self._falling_piece_rot,
@@ -94,11 +106,8 @@ class TetrisGame:
         """
         Returns the cell positions of all the blocks in the falling piece
         """
-        a = [(x + self._falling_piece_bb_x, y + self._falling_piece_bb_y) for x, y in PIECE_DATA[self._falling_piece][self._falling_piece_rot]]
+        a = [(x + self._falling_piece_bb_x, y + self._falling_piece_bb_y) for x, y in game_data.PIECE_SHAPES[self._falling_piece][self._falling_piece_rot]]
         return a
-
-    def tick_gravity(self):
-        self._piece_bb_y -= 1
 
     def shift_left(self):
         """
@@ -133,22 +142,48 @@ class TetrisGame:
         """
         # TODO SRS
         self._falling_piece_rot = (self._falling_piece_rot - 1) % 4
+
+    def hold(self):
+        """
+        Attempts to hold a piece
+        """
+        if not self._held_already:
+            if self._held_piece != Piece.NULL:
+                # put piece at front of queue to use previously held piece next
+                self._piece_queue.appendleft(self._held_piece)
+
+            self._held_piece = self._falling_piece
+            self._place_new_piece()
+            self._held_already = True
     
     def soft_drop(self):
         self._falling_piece_bb_y += 1
 
     def hard_drop(self):
         self._falling_piece_bb_y += 2
-    
-    def current_piece(self) -> int:
-        return self._current_piece
+
+    def _get_speed(self) -> float:
+        """
+        Calculate current G-value of falling pieces
+        """
+        if self._level <= 0:
+            raise ValueError(f"Invalid level: {self._level}")
+        elif self._level < len(game_data.LEVEL_SPEEDS):
+            return game_data.LEVEL_SPEEDS[self._level - 1]
+        else:
+            return game_data.LEVEL_SPEEDS[-1]
 
     def _place_new_piece(self):
         """
         """
+        if len(self._piece_queue) == 0:
+            self._extend_piece_queue()
+        self._falling_piece = self._piece_queue.popleft()
         self._falling_piece_rot = 0
         self._falling_piece_bb_x = 3
         self._falling_piece_bb_y = 19
+
+        self._held_already = False
     
     def _extend_piece_queue(self):
         bag = list(_FULL_SEVEN_BAG)

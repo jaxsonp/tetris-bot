@@ -97,9 +97,8 @@ def handle_key(key: Key, pressed: bool):
             case Key.SPACE:
                 # TODO hard drop
                 pass
-            case Key.L_SHIFT | Key.R_SHIFT:
-                # TODO hold
-                pass
+            case Key.L_SHIFT | Key.R_SHIFT | Key.C:
+                game.hold()
     else:
         match key:
             case Key.LEFT:

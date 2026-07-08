@@ -1,7 +1,7 @@
 
 # For each piece, for each rotation, what cells are part of the piece (of form
 # (x,y) relative to BOTTOM-RIGHT of the bounding box)
-PIECE_DATA = (
+PIECE_SHAPES = (
     # null piece
     (),
     # I piece
@@ -54,3 +54,27 @@ PIECE_DATA = (
         ((1, 1), (2, 1), (1, 2), (2, 2)),
     ),
 )
+
+# G-value for each level (level 1 = index 0, 1G = 1 row down per second)
+LEVEL_SPEEDS = [
+    0.01667,
+    0.021017,
+    0.026977,
+    0.035256,
+    0.04693,
+    0.06361,
+    0.0879,
+    0.1236,
+    0.1775,
+    0.2598,
+    0.388,
+    0.59,
+    0.92,
+    1.46,
+    2.36,
+    3.91,
+    6.61,
+    11.43,
+    20.23,
+    36.6
+]
