@@ -78,3 +78,99 @@ LEVEL_SPEEDS = [
     20.23,
     36.6
 ]
+
+# SRS wall kick data for the J, L, S, T, and Z pieces
+SRS_KICKS_JLSTZ = [
+    # from rot 0
+    [
+        # to rot 0
+        None,
+        # to rot 1
+        [(-1, 0), (-1, 1), (0, -2), (-1, -2)],
+        # to rot 2
+        None,
+        # to rot 3
+        [(1, 0), (1, 1), (0, -2), (1, 2)],
+    ],
+    # from rot 1
+    [
+        # to rot 0
+        [(1, 0), (1, -1), (0, 2), (1, 2)],
+        # to rot 1
+        None,
+        # to rot 2
+        [(1, 0), (1, -1), (0, 2), (1, 2)],
+        # to rot 3
+        None,
+    ],
+    # from rot 2
+    [
+        # to rot 0
+        None,
+        # to rot 1
+        [(-1, 0), (-1, 1), (0, -2), (-1, -2)],
+        # to rot 2
+        None,
+        # to rot 3
+        [(1, 0), (1, 1), (0, -2), (1, 2)],
+    ],
+    # from rot 3
+    [
+        # to rot 0
+        [(-1, 0), (1, -1), (0, 2), (1, 2)],
+        # to rot 1
+        None,
+        # to rot 2
+        [(-1, 0), (1, -1), (0, 2), (1, 2)],
+        # to rot 3
+        None,
+    ],
+]
+
+# SRS wall kick data for the I piece
+SRS_KICKS_I = [
+    # from rot 0
+    [
+        # to rot 0
+        None,
+        # to rot 1
+        [(-2, 0), (+1, 0), (-2, -1), (1, 2)],
+        # to rot 2
+        None,
+        # to rot 3
+        [(-1, 0), (2, 0), (-1, 2), (2, -1)],
+    ],
+    # from rot 1
+    [
+        # to rot 0
+        [(2, 0), (-1, 0), (2, 1), (-1, -2)],
+        # to rot 1
+        None,
+        # to rot 2
+        [(-1, 0), (2, 0), (-1, 2), (2, -1)],
+        # to rot 3
+        None,
+    ],
+    # from rot 2
+    [
+        # to rot 0
+        None,
+        # to rot 1
+        [(1, 0), (-2, 0), (1, 2), (-2, 1)],
+        # to rot 2
+        None,
+        # to rot 3
+        [(2, 0), (-1, 0), (2, 1), (-1, -2)],
+    ],
+    # from rot 3
+    [
+        # to rot 0
+        [(-2, 0), (1, 0), (2, 1), (-1, -2)],
+        # to rot 1
+        None,
+        # to rot 2
+        [(-2, 0), (1, 0), (-2, -1), (1, 2)],
+        # to rot 3
+        None,
+    ],
+]

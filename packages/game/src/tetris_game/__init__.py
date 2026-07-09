@@ -346,11 +346,7 @@ class TetrisGame:
         """
         if self._state.status != GameStatus.PLAYING:
             return
-            
-        # TODO SRS
-        self._state.falling_piece_rot = (self._state.falling_piece_rot + 1) % 4
-        self._check_piece_pos()
-        self._do_state_change_callback()
+        self._try_rotate(False)
 
     def rotate_ccw(self):
         """
@@ -358,11 +354,7 @@ class TetrisGame:
         """
         if self._state.status != GameStatus.PLAYING:
             return
-
-        # TODO SRS
-        self._state.falling_piece_rot = (self._state.falling_piece_rot - 1) % 4
-        self._check_piece_pos()
-        self._do_state_change_callback()
+        self._try_rotate(True)
 
     def hold(self):
         """
@@ -382,7 +374,7 @@ class TetrisGame:
                 last_held_piece = self._state.held_piece
                 self._state.held_piece = self._state.falling_piece
                 self._new_piece(last_held_piece)
-
+    
     def _fall(self) -> bool:
         """
         Move the falling piece down and handle landing logic. Returns True if
@@ -425,20 +417,69 @@ class TetrisGame:
             self._check_piece_pos()
             return False
 
+    def _try_rotate(self, ccw: bool):
+        if self._state.falling_piece == Piece.O:
+            return # duh
+
+        old_rot = self._state.falling_piece_rot
+        self._state.falling_piece_rot = (self._state.falling_piece_rot + (-1 if ccw else 1)) % 4
+        new_rot = self._state.falling_piece_rot
+
+        # srs, first check if piece fits
+        fits = True
+        for x, y in self._state.falling_piece_cells():
+            if self._state.get_board(x, y) != Piece.NULL or x < 0 or x >= TetrisGame.BOARD_WIDTH or y < 0:
+                fits = False
+                print("needs kick", end="\r")
+                break
+        
+        if not fits:
+            # didn't fit there, try wall kicks
+            test_offsets = (game_data.SRS_KICKS_JLSTZ if self._state.falling_piece != Piece.I else game_data.SRS_KICKS_I)[old_rot][new_rot]
+            valid_offset = None
+            for x_offset, y_offset in test_offsets:
+                fits = True
+                for x, y in self._state.falling_piece_cells():
+                    x += x_offset
+                    y += y_offset
+                    if self._state.get_board(x, y) != Piece.NULL or x < 0 or x >= TetrisGame.BOARD_WIDTH or y < 0:
+                        fits = False
+                        break
+                if fits:
+                    valid_offset = (x_offset, y_offset)
+                    break
+            if valid_offset is None:
+                # no valid spot found, undo the rotation
+                self._state.falling_piece_rot = old_rot
+                return
+            else:
+                self._state.falling_piece_bb_x += valid_offset[0]
+                self._state.falling_piece_bb_y += valid_offset[1]
+
+        self._check_lock_delay()
+        self._check_piece_pos()
+        self._do_state_change_callback()
+
     def _check_piece_pos(self):
         """
         Checks if a piece is clipped or touching the ground, and handles it.
         This function is to be called after the piece moves
         """
+        grounded = False
         for x, y in self._state.falling_piece_cells():
             if self._state.get_board(x, y) != Piece.NULL:
                 self._game_over()
                 return
-            elif not self._piece_grounded and (y == 0 or self._state.get_board(x, y-1) != Piece.NULL):
-                self._piece_grounded = True
-                self._lock_delay_start_t = time.perf_counter()
-                self._lock_delay_moves = TetrisGame.LOCK_DELAY_MOVES
-                return
+
+            if y == 0 or self._state.get_board(x, y-1) != Piece.NULL:
+                grounded = True
+                break
+        if grounded and not self._piece_grounded:
+            self._piece_grounded = True
+            self._lock_delay_start_t = time.perf_counter()
+            self._lock_delay_moves = TetrisGame.LOCK_DELAY_MOVES
+        elif not grounded:
+            self._piece_grounded = False
     
     def _check_lock_delay(self):
         """
