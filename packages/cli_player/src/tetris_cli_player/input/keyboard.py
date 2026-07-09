@@ -23,9 +23,11 @@ class Key(enum.StrEnum):
     LEFT = "left"
     RIGHT = "right"
     SPACE = "space"
+    ENTER = "enter"
     L_SHIFT = "lshift"
     R_SHIFT = "rshift"
     L_CTRL = "lctrl"
+    ESCAPE = "esc"
     C = "c"
     H = "h"
     Z = "z"
@@ -64,9 +66,11 @@ def _posix_keyboard_input_daemon(callback: Callable):
         evdev.ecodes.KEY_RIGHT: Key.RIGHT,
         evdev.ecodes.KEY_LEFT: Key.LEFT,
         evdev.ecodes.KEY_SPACE: Key.SPACE,
+        evdev.ecodes.KEY_ENTER: Key.ENTER,
         evdev.ecodes.KEY_LEFTSHIFT: Key.L_SHIFT,
         evdev.ecodes.KEY_RIGHTSHIFT: Key.R_SHIFT,
         evdev.ecodes.KEY_LEFTCTRL: Key.L_CTRL,
+        evdev.ecodes.KEY_ESC: Key.ESCAPE,
         evdev.ecodes.KEY_C: Key.C,
         evdev.ecodes.KEY_H: Key.H,
         evdev.ecodes.KEY_Q: Key.Q,

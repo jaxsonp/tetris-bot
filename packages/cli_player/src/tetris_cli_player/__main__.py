@@ -5,7 +5,7 @@ import time
 from tetris_game import TetrisGame, TetrisGameState
 
 from tetris_cli_player.input.keyboard import start_keyboard_input_daemon, Key
-from tetris_cli_player.render import visualize_state
+from tetris_cli_player import render
 
 game: TetrisGame | None = None
 stopped = False
@@ -23,25 +23,28 @@ def main():
 
     
     try:
-        game = TetrisGame(update_callback=on_update)
-        # game._falling_piece_bb_y = 10
+        game = TetrisGame(state_change_callback=on_state_change)
 
         start_keyboard_input_daemon(callback=handle_key)
 
-        game.start()
+        # inital render
+        render.visualize_state(game.get_state(), message="ENTER to start")
 
         time.sleep(1)
         game.join()
+        game = None
 
     except KeyboardInterrupt:
         pass
+    finally:
+        render.cleanup()
 
 
-def on_update(state: TetrisGameState):
+def on_state_change(state: TetrisGameState):
     """
-    Called by the game thread once per frame
+    Called by the game thread when the state changes
     """
-    visualize_state(state)
+    render.visualize_state(state)
 
 
 def handle_key(key: Key, pressed: bool):
@@ -53,7 +56,8 @@ def handle_key(key: Key, pressed: bool):
     if game is None:
         if key == Key.Q:
             sys.exit(0)
-        return
+        else:
+            return
 
     match key:
         case Key.Q:
@@ -64,6 +68,8 @@ def handle_key(key: Key, pressed: bool):
             game.shift_right(hold=pressed)
         case Key.DOWN:
             game.soft_drop(hold=pressed)
+        case Key.ENTER:
+            game.start()
 
     if pressed:
         match key:
@@ -72,10 +78,11 @@ def handle_key(key: Key, pressed: bool):
             case Key.L_CTRL | Key.Z:
                 game.rotate_ccw()
             case Key.SPACE:
-                # TODO hard drop
-                pass
+                game.hard_drop()
             case Key.L_SHIFT | Key.R_SHIFT | Key.C:
                 game.hold()
+            case Key.ESCAPE:
+                game.toggle_pause()
 
 
 if __name__ == "__main__":
