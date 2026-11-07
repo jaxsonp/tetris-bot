@@ -164,6 +164,12 @@ class TetrisGame:
         self._lock_delay_start_t: float = 0.0
         self._lock_delay_moves: int = 0
 
+        # scoring variables
+        self._soft_drops = 0
+        self._hard_drops = 0
+        self._b2b_difficult_clears = False
+        self._combo_count = 0
+
         self._bg_thread = threading.Thread(target=self._background_routine, name="tetris_game_thread", daemon=True)
         self._bg_thread.start()
     
@@ -335,6 +341,7 @@ class TetrisGame:
             return
 
         if hold is None or hold:
+            self._soft_drops += 1
             self._fall()
             if hold is not None:
                 # hold on
@@ -350,8 +357,11 @@ class TetrisGame:
         if self._state.status != GameStatus.PLAYING:
             return
 
-        while not self._fall():
-            pass
+        while True:
+            self._hard_drops += 1
+            landed = self._fall()
+            if landed:
+                break
 
     def rotate_cw(self):
         """
@@ -392,6 +402,9 @@ class TetrisGame:
         """
         Move the falling piece down and handle landing logic. Returns True if
         the piece lands and is locked in
+
+        Args:
+            hard_drop (bool): Whether this was a hard drop
         """
 
         if self._piece_grounded:
@@ -418,6 +431,84 @@ class TetrisGame:
                 if cleared:
                     cleared_lines += 1
             self._state.lines_cleared += cleared_lines
+
+            # scoring
+            action_score = 0
+            difficult_clear = False
+
+            # placeholder values, TODO
+            t_spin = False
+            mini_t_spin = False
+            if t_spin:
+                if cleared_lines == 0:
+                    # t-spin no clear
+                    action_score += 400 * self._state.level
+                elif cleared_lines == 1:
+                    # t-spin single
+                    action_score += 800 * self._state.level 
+                    difficult_clear = True
+                elif cleared_lines == 2:
+                    # t-spin double
+                    action_score += 1200 * self._state.level
+                    difficult_clear = True
+                elif cleared_lines == 3:
+                    # t-spin triple
+                    action_score += 1600 * self._state.level
+                    difficult_clear = True
+                else:
+                    raise RuntimeError("Theoretically unreachable t-spin line clear")
+            elif mini_t_spin:
+                if cleared_lines == 0:
+                    # mini t-spin no clear
+                    action_score += 100 * self._state.level
+                elif cleared_lines == 1:
+                    # mini t-spin single
+                    action_score += 200 * self._state.level
+                    difficult_clear = True
+                elif cleared_lines == 2:
+                    # mini t-spin double
+                    action_score += 400 * self._state.level
+                    difficult_clear = True
+                else:
+                    raise RuntimeError("Theoretically unreachable mini t-spin line clear")
+            else:
+                if cleared_lines == 1:
+                    # single clear
+                    action_score += 100 * self._state.level
+                elif cleared_lines == 2:
+                    # double clear
+                    action_score += 300 * self._state.level
+                elif cleared_lines == 3:
+                    # triple clear
+                    action_score += 500 * self._state.level
+                elif cleared_lines == 4:
+                    # tetris!
+                    action_score += 800 * self._state.level
+                    difficult_clear = True
+                elif cleared_lines != 0:
+                    raise RuntimeError("Theoretically unreachable line clear")
+            
+            if cleared_lines > 0:
+                # back to back difficult clears
+                if difficult_clear and self._b2b_difficult_clears:
+                    action_score *= 1.5
+                self._b2b_difficult_clears = difficult_clear
+
+                # combo score
+                action_score += 50 * self._combo_count * self._state.level
+
+                self._combo_count += 1
+            else:
+                self._combo_count = 0
+
+
+            action_score += self._soft_drops
+            action_score += self._hard_drops * 2
+
+            self._state.score += action_score
+
+            # leveling up
+            self._state.level = (self._state.lines_cleared // 10) + 1
             
             # spawn new piece
             self._state.held_already = False
@@ -532,6 +623,10 @@ class TetrisGame:
         if self._state.falling_piece == Piece.I:
             self._state.falling_piece_bb_y -= 1 # I piece needs to start one lower cus bigger bounding box
         self._piece_grounded = False
+
+        # reset scoring variables
+        self._soft_drops = 0
+        self._hard_drops = 0
 
         self._check_piece_pos()
         self._do_state_change_callback()
