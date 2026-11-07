@@ -91,6 +91,19 @@ class TetrisGameState:
         a = [(x + self.falling_piece_bb_x, y + self.falling_piece_bb_y) for x, y in game_data.PIECE_SHAPES[self.falling_piece][self.falling_piece_rot]]
         return a
 
+    def ghost_cells(self) -> list[tuple[int, int]]:
+        """
+        Returns the cell positions of where the falling piece _will_ be if it falls without moving/rotating
+        """
+        cells = self.falling_piece_cells()
+        while True:
+            for x, y in cells:
+                if y <= 0 or self.get_board(x, y - 1) != Piece.NULL:
+                    return cells
+            
+            # hasn't landed yet, fall
+            cells = [(x, y-1) for x, y in cells]
+
 
 
 class TetrisGame:

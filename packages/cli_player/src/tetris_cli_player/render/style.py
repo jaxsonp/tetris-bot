@@ -5,6 +5,8 @@ WT_RESET = "\x1b[22m"
 WT_BOLD = "\x1b[1m"
 WT_LIGHT = "\x1b[2m"
 
+INVERT_FG_BG = "\x1b[7m"
+
 # foreground color
 FG_COL_RESET = "\x1b[39m"
 FG_COL_BLACK = "\x1b[30m"

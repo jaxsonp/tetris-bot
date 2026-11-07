@@ -132,11 +132,16 @@ def visualize_state(state: TetrisGameState, message: str | None = None):
         _cursor_x = 0
         _cursor_y = 0
     
+    # show ghost cells
+    ghost_cells = state.ghost_cells()
+    for block_x, block_y in ghost_cells:
+        state.set_board(block_x, block_y, -state.falling_piece) # negative for ghost pieces
+
     # show falling piece
     for block_x, block_y in state.falling_piece_cells():
         state.set_board(block_x, block_y, state.falling_piece)
     
-    # calculate diffs from bottom to top (list of (x, y, value))
+    # calculate diffs from bottom to top (list of (x, y, value), negative value means ghost piece)
     changes: list[tuple[int, int, int]] = []
     for y in range(BOARD_DISPLAY_HEIGHT + 1):
         # get changes in side to side manner for optimization maybe?
@@ -148,7 +153,16 @@ def visualize_state(state: TetrisGameState, message: str | None = None):
     # redraw changed cells
     for col, row, value in changes:
         move_cursor(2 + (col * 2), 6 + row)
-        sys.stdout.write(f"{PIECE_BG_COLOR_MAP[value]}  {style.BG_COL_RESET}")
+        if value < 0:
+            # ghost cell
+            sys.stdout.write(PIECE_FG_COLOR_MAP[abs(value)])
+            sys.stdout.write("▒▒")
+            sys.stdout.write(style.FG_COL_RESET)
+        else:
+            # normal cell
+            sys.stdout.write(PIECE_BG_COLOR_MAP[value])
+            sys.stdout.write("  ")
+            sys.stdout.write(style.BG_COL_RESET)
         _cursor_x += 2
 
     # redraw changed held/next pieces
