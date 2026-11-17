@@ -119,7 +119,25 @@ class TetrisGame:
 
     # lock delay
     LOCK_DELAY_MOVES = 15
-    LOCK_DELAY_TIME = 0.5
+    LOCK_DELAY_FRAMES = 0.5 * FPS # every half second
+
+    class PieceBag:
+        def __init__(self):
+            self._rng = random.Random()
+            self._bag: list[Piece] = []
+
+        def next(self) -> Piece:
+            if not self._bag:
+                self._bag = [Piece.I, Piece.L, Piece.J, Piece.S, Piece.Z, Piece.T, Piece.O]
+                self._rng.shuffle(self._bag)
+            return self._bag.pop()
+
+        def copy(self) -> "TetrisGame.PieceBag":
+            new = TetrisGame.PieceBag.__new__(TetrisGame.PieceBag)
+            new._rng = random.Random()
+            new._rng.setstate(self._rng.getstate())
+            new._bag = list(self._bag)
+            return new
 
     def __init__(self, state_change_callback: Callable | None = None):
         """
@@ -128,25 +146,27 @@ class TetrisGame:
         Args:
          - state_change_callback: Callable | None - Optional callback to be
             called after each frame, with a `TetrisGameState` object passed as
-            the first argument
+            the first argument (probably should keep it fast and short)
         """
+
+        self._lock = threading.RLock()
 
         self._state_change_callback: Callable | None = state_change_callback
 
         self._frame: int = 0
 
-        self._piece_queue = self._piece_generator()
+        self._piece_bag = TetrisGame.PieceBag()
 
         self._state = TetrisGameState(
             status=GameStatus.READY,
             score=0,
             level=1,
             lines_cleared=0,
-            falling_piece=next(self._piece_queue),
+            falling_piece=self._piece_bag.next(),
             falling_piece_bb_x=0,
             falling_piece_bb_y=0,
             falling_piece_rot=0,
-            next_piece=next(self._piece_queue),
+            next_piece=self._piece_bag.next(),
             held_piece=Piece.NULL,
             held_already=False,
             board_data=[Piece.NULL] * (TetrisGame.BOARD_WIDTH * TetrisGame.BOARD_HEIGHT)
@@ -161,7 +181,8 @@ class TetrisGame:
         self._das_down_press_frame: int | None = None
 
         self._piece_grounded = False
-        self._lock_delay_start_t: float = 0.0
+        self._prev_gravity_frame: int = 0
+        self._lock_delay_start_frame: int = 0
         self._lock_delay_moves: int = 0
 
         # scoring variables
@@ -170,58 +191,103 @@ class TetrisGame:
         self._b2b_difficult_clears = False
         self._combo_count = 0
 
-        self._bg_thread = threading.Thread(target=self._background_routine, name="tetris_game_thread", daemon=True)
+        self._bg_thread: threading.Thread | None = threading.Thread(target=self._background_routine, name="tetris_game_thread", daemon=True)
         self._bg_thread.start()
+
+
+    def get_frozen_copy(self) -> "TetrisGame":
+        """
+        Return a copy of this game that is not live, that is, the game will not update itself (pieces won't fall etc)
+        """
+        with self._lock:
+            new = object.__new__(TetrisGame)
+
+            new._state_change_callback = None # don't fire the original's callback
+            new._frame = self._frame
+            new._piece_bag = self._piece_bag.copy()
+            new._state = self._state.copy()
+
+            new._das_left_press_frame = self._das_left_press_frame
+            new._das_right_press_frame = self._das_right_press_frame
+            new._das_down_press_frame = self._das_down_press_frame
+
+            new._piece_grounded = self._piece_grounded
+            new._prev_gravity_frame = self._prev_gravity_frame
+            new._lock_delay_start_frame = self._lock_delay_start_frame
+            new._lock_delay_moves = self._lock_delay_moves
+
+            new._soft_drops = self._soft_drops
+            new._hard_drops = self._hard_drops
+            new._b2b_difficult_clears = self._b2b_difficult_clears
+            new._combo_count = self._combo_count
+
+            new._bg_thread = None
+            new._lock = threading.RLock
+            return new
     
     def _background_routine(self):
-
-        prev_gravity_frame = self._frame
+        """
+        Thread target, responsible for wall-clock pacing, game logic lives in ._tick()
+        """
         prev_frame_t = time.perf_counter()
 
         while True:
-            if self._state.status == GameStatus.READY or self._state.status == GameStatus.PAUSED:
+            status = self._state.status
+
+            if status == GameStatus.READY or status == GameStatus.PAUSED:
                 # idle until game starts/resumes
                 time.sleep(0.1)
 
-            elif self._state.status == GameStatus.PLAYING:
+            elif status == GameStatus.PLAYING:
                 current_t = time.perf_counter()
-                delta_t = current_t - prev_frame_t
-                if delta_t < TetrisGame.FRAME_DURATION:
+                if current_t - prev_frame_t < TetrisGame.FRAME_DURATION:
                     # not yet time for a new frame
-                    time.sleep(0.0) # yield thread
+                    time.sleep(0.0)  # yield thread
                     continue
                 prev_frame_t = current_t
 
-                # delayed auto shift
-                for press_start_frame, action in (
-                    (self._das_left_press_frame, self.shift_left), 
-                    (self._das_right_press_frame, self.shift_right),
-                    (self._das_down_press_frame, self.soft_drop)
-                ):
-                    if press_start_frame is not None:
-                        hold_duration = self._frame - press_start_frame
-                        if hold_duration > TetrisGame.DAS_ENTRY and hold_duration % TetrisGame.DAS_RATE == 0:
-                            action()
-                            self._check_piece_pos()
-                
-                if not self._piece_grounded:
-                    # do gravity
-                    if float(self._frame) >= float(prev_gravity_frame) + (1.0 / self._state.get_speed()):
-                        self._fall()
-                        prev_gravity_frame = self._frame
-                else:
-                    # lock delay
-                    if current_t >= self._lock_delay_start_t + TetrisGame.LOCK_DELAY_TIME:
-                        # ran out of time, lock it in
-                        self._fall()
-
-                
-                self._do_state_change_callback()
-
-                self._frame += 1
+                with self._lock:
+                    self.tick()
             else:
                 # game done
                 break
+
+    def tick(self):
+        """
+        Advance the game by exactly one frame (DAS, gravity, lock delay).
+        Does nothing unless the game is PLAYING. Safe to call manually on a
+        frozen copy for deterministic stepping, you probably don't want to call
+        this on a live game
+        """
+        if self._state.status != GameStatus.PLAYING:
+            return
+
+        # delayed auto shift
+        with self._lock:
+            for press_start_frame, action in (
+                (self._das_left_press_frame, self.shift_left),
+                (self._das_right_press_frame, self.shift_right),
+                (self._das_down_press_frame, self.soft_drop),
+            ):
+                if press_start_frame is not None:
+                    hold_duration = self._frame - press_start_frame
+                    if hold_duration > TetrisGame.DAS_ENTRY and hold_duration % TetrisGame.DAS_RATE == 0:
+                        action()
+                        self._check_piece_pos()
+
+            if not self._piece_grounded:
+                # gravity
+                if float(self._frame) >= float(self._prev_gravity_frame) + (1.0 / self._state.get_speed()):
+                    self._fall()
+                    self._prev_gravity_frame = self._frame
+            else:
+                # lock delay
+                if self._frame >= self._lock_delay_start_frame + TetrisGame.LOCK_DELAY_FRAMES:
+                    # ran out of time, lock it in
+                    self._fall()
+
+        self._do_state_change_callback()
+        self._frame += 1
 
     def _do_state_change_callback(self):
         if self._state_change_callback is not None:
@@ -232,37 +298,40 @@ class TetrisGame:
         """
         Start the game, does nothing if game has already been started
         """
-        if self._state.status == GameStatus.READY:
-            self._state.status = GameStatus.PLAYING
-            self._do_state_change_callback()
+        with self._lock:
+            if self._state.status == GameStatus.READY:
+                self._state.status = GameStatus.PLAYING
+        self._do_state_change_callback()
 
     def toggle_pause(self):
         """
         Pause or unpause game
         """
-        if self._state.status == GameStatus.PAUSED:
-            self._state.status = GameStatus.PLAYING
-            self._do_state_change_callback()
-        elif self._state.status == GameStatus.PLAYING:
-            self._state.status = GameStatus.PAUSED
-            self._do_state_change_callback()
+        with self._lock:
+            if self._state.status == GameStatus.PAUSED:
+                self._state.status = GameStatus.PLAYING
+            elif self._state.status == GameStatus.PLAYING:
+                self._state.status = GameStatus.PAUSED
+        self._do_state_change_callback()
 
     def quit(self):
         """
         Quit the game
         """
-        self._state.status = GameStatus.QUIT
+        with self._lock:
+            self._state.status = GameStatus.QUIT
         self._do_state_change_callback()
     
     def join(self):
         """
         Block until game is finished
         """
-        if self._bg_thread.is_alive():
+        if self._bg_thread is not None and self._bg_thread.is_alive():
             self._bg_thread.join()
     
     def get_state(self) -> TetrisGameState:
-        return self._state.copy()
+        with self._lock:
+            return self._state.copy()
 
     def shift_left(self, hold: bool | None = None):
         """
@@ -276,25 +345,26 @@ class TetrisGame:
         if self._state.status != GameStatus.PLAYING:
             return
 
-        if hold is None or hold:
-            # checking if any pieces would be out of bounds
-            for x, y in self._state.falling_piece_cells():
-                if x <= 0 or self._state.get_board(x-1, y) != Piece.NULL:
-                    return
+        with self._lock:
+            if hold is None or hold:
+                # checking if any pieces would be out of bounds
+                for x, y in self._state.falling_piece_cells():
+                    if x <= 0 or self._state.get_board(x-1, y) != Piece.NULL:
+                        return
 
-            # move
-            self._state.falling_piece_bb_x -= 1
+                # move
+                self._state.falling_piece_bb_x -= 1
 
-            self._check_lock_delay()
-            self._check_piece_pos()
-            self._do_state_change_callback()
+                self._check_lock_delay()
+                self._check_piece_pos()
+                self._do_state_change_callback()
 
-            if hold is not None:
-                # hold on
-                self._das_left_press_frame = self._frame
-        else:
-            # hold off
-            self._das_left_press_frame = None
+                if hold is not None:
+                    # hold on
+                    self._das_left_press_frame = self._frame
+            else:
+                # hold off
+                self._das_left_press_frame = None
 
     def shift_right(self, hold: bool | None = None):
         """
@@ -308,24 +378,25 @@ class TetrisGame:
         if self._state.status != GameStatus.PLAYING:
             return
 
-        if hold is None or hold:
-            # checking if any pieces would be out of bounds
-            for x, y in self._state.falling_piece_cells():
-                if x >= TetrisGame.BOARD_WIDTH - 1 or self._state.get_board(x+1, y) != Piece.NULL:
-                    return
-            # move
-            self._state.falling_piece_bb_x += 1
+        with self._lock:
+            if hold is None or hold:
+                # checking if any pieces would be out of bounds
+                for x, y in self._state.falling_piece_cells():
+                    if x >= TetrisGame.BOARD_WIDTH - 1 or self._state.get_board(x+1, y) != Piece.NULL:
+                        return
+                # move
+                self._state.falling_piece_bb_x += 1
 
-            self._check_lock_delay()
-            self._check_piece_pos()
-            self._do_state_change_callback()
+                self._check_lock_delay()
+                self._check_piece_pos()
+                self._do_state_change_callback()
 
-            if hold is not None:
-                # hold on
-                self._das_right_press_frame = self._frame
-        else:
-            # hold off
-            self._das_right_press_frame = None
+                if hold is not None:
+                    # hold on
+                    self._das_right_press_frame = self._frame
+            else:
+                # hold off
+                self._das_right_press_frame = None
     
     
     def soft_drop(self, hold: bool | None = None):
@@ -340,15 +411,16 @@ class TetrisGame:
         if self._state.status != GameStatus.PLAYING:
             return
 
-        if hold is None or hold:
-            self._soft_drops += 1
-            self._fall()
-            if hold is not None:
-                # hold on
-                self._das_down_press_frame = self._frame
-        else:
-            # hold off
-            self._das_down_press_frame = None
+        with self._lock:
+            if hold is None or hold:
+                self._soft_drops += 1
+                self._fall()
+                if hold is not None:
+                    # hold on
+                    self._das_down_press_frame = self._frame
+            else:
+                # hold off
+                self._das_down_press_frame = None
 
     def hard_drop(self):
         """
@@ -357,11 +429,12 @@ class TetrisGame:
         if self._state.status != GameStatus.PLAYING:
             return
 
-        while True:
-            self._hard_drops += 1
-            landed = self._fall()
-            if landed:
-                break
+        with self._lock:
+            while True:
+                self._hard_drops += 1
+                landed = self._fall()
+                if landed:
+                    break
 
     def rotate_cw(self):
         """
@@ -369,7 +442,8 @@ class TetrisGame:
         """
         if self._state.status != GameStatus.PLAYING:
             return
-        self._try_rotate(False)
+        with self._lock:
+            self._try_rotate(False)
 
     def rotate_ccw(self):
         """
@@ -377,7 +451,8 @@ class TetrisGame:
         """
         if self._state.status != GameStatus.PLAYING:
             return
-        self._try_rotate(True)
+        with self._lock:
+            self._try_rotate(True)
 
     def hold(self):
         """
@@ -386,17 +461,18 @@ class TetrisGame:
         if self._state.status != GameStatus.PLAYING:
             return
 
-        if not self._state.held_already:
-            self._state.held_already = True
-            if self._state.held_piece == Piece.NULL:
-                # no piece has been held yet, get next piece from queue
-                self._state.held_piece = self._state.falling_piece
-                self._new_piece()
-            else:
-                # bank current piece, spawn instance of held piece
-                last_held_piece = self._state.held_piece
-                self._state.held_piece = self._state.falling_piece
-                self._new_piece(last_held_piece)
+        with self._lock:
+            if not self._state.held_already:
+                self._state.held_already = True
+                if self._state.held_piece == Piece.NULL:
+                    # no piece has been held yet, get next piece from queue
+                    self._state.held_piece = self._state.falling_piece
+                    self._new_piece()
+                else:
+                    # bank current piece, spawn instance of held piece
+                    last_held_piece = self._state.held_piece
+                    self._state.held_piece = self._state.falling_piece
+                    self._new_piece(last_held_piece)
     
     def _fall(self) -> bool:
         """
@@ -505,7 +581,7 @@ class TetrisGame:
             action_score += self._soft_drops
             action_score += self._hard_drops * 2
 
-            self._state.score += action_score
+            self._state.score += int(action_score)
 
             # leveling up
             self._state.level = (self._state.lines_cleared // 10) + 1
@@ -534,7 +610,6 @@ class TetrisGame:
         for x, y in self._state.falling_piece_cells():
             if self._state.get_board(x, y) != Piece.NULL or x < 0 or x >= TetrisGame.BOARD_WIDTH or y < 0:
                 fits = False
-                print("needs kick", end="\r")
                 break
         
         if not fits:
@@ -580,7 +655,7 @@ class TetrisGame:
                 break
         if grounded and not self._piece_grounded:
             self._piece_grounded = True
-            self._lock_delay_start_t = time.perf_counter()
+            self._lock_delay_start_frame = self._frame
             self._lock_delay_moves = TetrisGame.LOCK_DELAY_MOVES
         elif not grounded:
             self._piece_grounded = False
@@ -596,7 +671,7 @@ class TetrisGame:
                 self._fall()
                 self._lock_delay_moves = TetrisGame.LOCK_DELAY_MOVES
             else:
-                self._lock_delay_start_t = time.perf_counter()
+                self._lock_delay_start_frame = self._frame
                 self._lock_delay_moves -= 1
     
     def _game_over(self):
@@ -614,7 +689,7 @@ class TetrisGame:
             self._state.falling_piece = peice_override
         else:
             self._state.falling_piece = self._state.next_piece
-            self._state.next_piece = next(self._piece_queue)
+            self._state.next_piece = self._piece_bag.next()
 
         # place it at top of board
         self._state.falling_piece_rot = 0
@@ -631,17 +706,3 @@ class TetrisGame:
         self._check_piece_pos()
         self._do_state_change_callback()
     
-    def _piece_generator(self):
-        """
-        Infinite generator for pieces, using the 7-bag strategy
-        """
-        while True:
-            bag = list([Piece.I, Piece.L, Piece.J, Piece.S, Piece.Z, Piece.T, Piece.O])
-
-            while len(bag) > 0:
-                choice_index = random.randint(0, len(bag) - 1)
-                choice = bag[choice_index]
-                bag.pop(choice_index)
-                yield choice
-         
-

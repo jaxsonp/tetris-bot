@@ -11,4 +11,4 @@ dependencies = ["evdev>=1.9.3", "tetris-game~=1.0.0"]
 play-tetris = "tetris_cli_player:main"
 
 [tool.uv.sources]
-tetris-game = { workspace = true }
+tetris_game = { workspace = true }

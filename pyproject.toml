@@ -4,6 +4,7 @@ version = "1.0.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
+dependencies = ["tetris_game", "tetris_cli_player", "tetris_bot_player"]
 
 [tool.uv.workspace]
 members = ["packages/*"]
@@ -11,3 +12,4 @@ members = ["packages/*"]
 [tool.uv.sources]
 tetris_game = { workspace = true }
 tetris_cli_player = { workspace = true }
+tetris_bot_player = { workspace = true }

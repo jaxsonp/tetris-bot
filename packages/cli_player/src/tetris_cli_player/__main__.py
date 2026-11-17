@@ -1,38 +1,30 @@
 import os
 import sys
 import time
+from typing import Callable
 
 from tetris_game import TetrisGame, TetrisGameState
 
-from tetris_cli_player.input.keyboard import start_keyboard_input_daemon, Key
+from tetris_cli_player.input import keyboard
 from tetris_cli_player import render
 
-game: TetrisGame | None = None
-stopped = False
-
-# game frame count
-frame = 0
-
-
 def main():
-    global game, frame
 
+    # require sudo on linux, for reading the keyboard
     if os.name == "posix" and os.geteuid() != 0:
         # re-execute with sudo for keyboard input reading on linux
         os.execvp("sudo", ["sudo", sys.executable] + sys.argv)
 
-    
     try:
         game = TetrisGame(state_change_callback=on_state_change)
 
-        start_keyboard_input_daemon(callback=handle_key)
+        keyboard.start_keyboard_input_daemon(callback=key_handler_factory(game))
 
         # inital render
         render.visualize_state(game.get_state(), message="ENTER to start")
 
         time.sleep(1)
         game.join()
-        game = None
 
     except KeyboardInterrupt:
         pass
@@ -47,42 +39,42 @@ def on_state_change(state: TetrisGameState):
     render.visualize_state(state)
 
 
-def handle_key(key: Key, pressed: bool):
-    """
-    Called by the keyboard listener on a key event
-    """
-    global game
+def key_handler_factory(game: TetrisGame) -> Callable:
+    def handle_key(key: keyboard.Key, pressed: bool):
+        """
+        Called by the keyboard listener on a key event
+        """
+        if game is None:
+            if key == keyboard.Key.Q:
+                sys.exit(0)
+            else:
+                return
 
-    if game is None:
-        if key == Key.Q:
-            sys.exit(0)
-        else:
-            return
-
-    match key:
-        case Key.Q:
-            game.quit()
-        case Key.LEFT:
-            game.shift_left(hold=pressed)
-        case Key.RIGHT:
-            game.shift_right(hold=pressed)
-        case Key.DOWN:
-            game.soft_drop(hold=pressed)
-        case Key.ENTER:
-            game.start()
-
-    if pressed:
         match key:
-            case Key.UP:
-                game.rotate_cw()
-            case Key.L_CTRL | Key.Z:
-                game.rotate_ccw()
-            case Key.SPACE:
-                game.hard_drop()
-            case Key.L_SHIFT | Key.R_SHIFT | Key.C:
-                game.hold()
-            case Key.ESCAPE:
-                game.toggle_pause()
+            case keyboard.Key.Q:
+                game.quit()
+            case keyboard.Key.LEFT:
+                game.shift_left(hold=pressed)
+            case keyboard.Key.RIGHT:
+                game.shift_right(hold=pressed)
+            case keyboard.Key.DOWN:
+                game.soft_drop(hold=pressed)
+            case keyboard.Key.ENTER:
+                game.start()
+
+        if pressed:
+            match key:
+                case keyboard.Key.UP:
+                    game.rotate_cw()
+                case keyboard.Key.L_CTRL | keyboard.Key.Z:
+                    game.rotate_ccw()
+                case keyboard.Key.SPACE:
+                    game.hard_drop()
+                case keyboard.Key.L_SHIFT | keyboard.Key.R_SHIFT | keyboard.Key.C:
+                    game.hold()
+                case keyboard.Key.ESCAPE:
+                    game.toggle_pause()
+    return handle_key
 
 
 if __name__ == "__main__":
