@@ -1,14 +1,29 @@
 import os
 import sys
 import time
-from typing import Callable
+from typing import Callable, LiteralString
 
 from tetris_game import TetrisGame, TetrisGameState
 
 from tetris_cli_player.input import keyboard
 from tetris_cli_player import render
 
+USAGE_TEXT: list[LiteralString] = [
+    "Controls:",
+    "  L/R arrow - Shift left/right",
+    "   Up arrow - Rotate cw",
+    " Down arrow - Soft drop",
+    "  Space bar - Hard drop",
+    "  Shift / C - Hold piece",
+    " L-ctrl / Z - Rotate ccw",
+    "        Esc - Pause/resume",
+    "          Q - Quit game",
+    "",
+]
+
+
 def main():
+    global USAGE_TEXT
 
     # require sudo on linux, for reading the keyboard
     if os.name == "posix" and os.geteuid() != 0:
@@ -21,7 +36,7 @@ def main():
         keyboard.start_keyboard_input_daemon(callback=key_handler_factory(game))
 
         # inital render
-        render.visualize_state(game.get_state(), message="ENTER to start")
+        render.visualize_state(game.get_state(), message="ENTER to start", details_text=USAGE_TEXT)
 
         time.sleep(1)
         game.join()

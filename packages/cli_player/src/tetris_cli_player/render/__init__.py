@@ -5,19 +5,6 @@ from tetris_game import TetrisGame, TetrisGameState, Piece, GameStatus
 
 from . import style
 
-HELP_TEXT: list[LiteralString] = [
-    "Controls:",
-    "  L/R arrow - Shift left/right",
-    "   Up arrow - Rotate cw",
-    " Down arrow - Soft drop",
-    "  Space bar - Hard drop",
-    "  Shift / C - Hold piece",
-    " L-ctrl / Z - Rotate ccw",
-    "        Esc - Pause/resume",
-    "          Q - Quit game",
-    "",
-]
-
 PIECE_BG_COLOR_MAP: list[LiteralString] = [
     style.BG_COL_RESET,     # NULL
     style.BG_COL_CYAN,      # I
@@ -60,7 +47,6 @@ MESSAGE_BANNER_BOTTOM_ROW = int(BOARD_DISPLAY_HEIGHT / 2) + 5
 
 _last_shown_state = None
 _last_shown_message = None
-_help_text_shown = False
 
 _cursor_x = 0
 _cursor_y = 0
@@ -85,7 +71,7 @@ def move_cursor(x, y):
         sys.stdout.write(f"\x1b[{int(y - _cursor_y)}A")
         _cursor_y = y
 
-def visualize_state(state: TetrisGameState, message: str | None = None, show_help_text: bool = True, show_ghost_piece: bool = True):
+def visualize_state(state: TetrisGameState, message: str | None = None, details_text: list[str] | None = None, show_ghost_piece: bool = True):
     """
     Draw a game state
 
@@ -95,10 +81,10 @@ def visualize_state(state: TetrisGameState, message: str | None = None, show_hel
     Args:
         state: duh
         message: Optional string, printed in a banner over the game field
-        show_help_text: boolean, whether to print the CLI help text
+        details_text: Optional list of strings, if passed, udpate the detail text lines located at the bottom left of the game
         show_ghost_piece: boolean, whether to display the ghost piece (where the falling piece will land)
     """
-    global _last_shown_state, _last_shown_message, _cursor_y, _cursor_x, _help_text_shown
+    global _last_shown_state, _last_shown_message, _cursor_y, _cursor_x
 
     if _last_shown_state is None:
         # never been displayed yet
@@ -106,22 +92,24 @@ def visualize_state(state: TetrisGameState, message: str | None = None, show_hel
         # draw game frame
         sys.stdout.write(f"\n{style.FG_COL_RESET}{style.BG_COL_RESET} ╻{" " * (BOARD_WIDTH * 2)}╻\n")
         for y in range(BOARD_DISPLAY_HEIGHT):
-            sys.stdout.write(" ┃" + (" " * (BOARD_WIDTH * 2)))
+            sys.stdout.write(" ┃")
+            sys.stdout.write(" " * (BOARD_WIDTH * 2))
             match y:
                 case 0:
-                    sys.stdout.write("┠Hold\n")
+                    sys.stdout.write("┠Hold")
                 case 1:
-                    sys.stdout.write( "┃   │\n")
+                    sys.stdout.write("┃   │")
                 case 2:
-                    sys.stdout.write("┠───╯\n")
+                    sys.stdout.write("┠───╯")
                 case 3:
-                    sys.stdout.write("┠Next\n")
+                    sys.stdout.write("┠Next")
                 case 4:
-                    sys.stdout.write("┃   │\n")
+                    sys.stdout.write("┃   │")
                 case 5:
-                    sys.stdout.write("┠───╯\n")
+                    sys.stdout.write("┠───╯")
                 case _:
-                    sys.stdout.write("┃\n")
+                    sys.stdout.write("┃")
+            sys.stdout.write("\x1b[K\n")
         sys.stdout.write(f" ┡{"━" * (BOARD_WIDTH * 2)}┩\n")
         sys.stdout.write(f" │ Score: {state.score:>{(BOARD_WIDTH * 2) - 9}} │\n")
         sys.stdout.write(f" │ Level: {state.level:>{(BOARD_WIDTH * 2) - 9}} │\n")
@@ -134,17 +122,16 @@ def visualize_state(state: TetrisGameState, message: str | None = None, show_hel
         _cursor_x = 0
         _cursor_y = 0
 
-    # help text
-    if show_help_text and not _help_text_shown:
-        sys.stdout.write(f"\x1b[{len(HELP_TEXT)}A")
-        for help_text_line in HELP_TEXT:
-            sys.stdout.write(f"\x1b[{(BOARD_WIDTH * 2) + 4}C{help_text_line}\n")
-        _help_text_shown = True
-    elif not show_help_text and _help_text_shown:
-        sys.stdout.write(f"\x1b[{len(HELP_TEXT)}A")
-        for help_text_line in HELP_TEXT:
-            sys.stdout.write(f"\x1b[{(BOARD_WIDTH * 2) + 4}C{" " * len(help_text_line)}\n")
-        _help_text_shown = False
+    # updating detail text lines
+    if details_text is not None:
+        details_text = details_text[::-1]
+        for y in range(0, BOARD_DISPLAY_HEIGHT-6):
+            if y >= len(details_text):
+                break
+            sys.stdout.write(f"\x1b[A\x1b[{(BOARD_WIDTH * 2) + 4}C\x1b[K{details_text[y]}\r")
+            _cursor_y += 1
+        sys.stdout.write(f"\x1b[{_cursor_y}B")
+        _cursor_y = 0
     
     if show_ghost_piece:
         # show ghost cells (before falling piece so ghost piece doesn't "hit" falling piece)

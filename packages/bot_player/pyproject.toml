@@ -1,0 +1,15 @@
+[project]
+name = "tetris_bot_player"
+version = "1.0.0"
+description = "A bot playing tetris"
+readme = "README.md"
+authors = [{ name = "Jaxson Pahukula", email = "jaxpahu@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = ["tetris_game~=1.0.0", "tetris_cli_player~=1.0.0"]
+
+[project.scripts]
+tetris-bot = "tetris_bot_player:main"
+
+[tool.uv.sources]
+tetris_game = { workspace = true }
+tetris_cli_player = { workspace = true }

@@ -2,10 +2,13 @@
 
 A (probably sorta) Tetris Guideline compliant tetris game.
 
-My highscore: `80942`
+My highscore: `129546`
+Bot highscore: `102712`
 
 ## TODO
 
+- Game fires callback multiple times per frame. Fix this
+- Probably race conditions in inter-thread interaction via bot state
 - Detect T-spins
 - Advanced scoring (T-spins, perfect clears, etc)
 	- Does b2b difficult clears apply before or after combo?

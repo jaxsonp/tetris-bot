@@ -71,7 +71,7 @@ class TetrisGameState:
         return old
 
     def copy(self) -> 'TetrisGameState':
-        return dataclasses.replace(self, board_data=list(self.board_data))
+        return dataclasses.replace(self, board_data=self.board_data.copy())
 
     def get_speed(self) -> float:
         """
@@ -222,7 +222,7 @@ class TetrisGame:
             new._combo_count = self._combo_count
 
             new._bg_thread = None
-            new._lock = threading.RLock
+            new._lock = threading.RLock()
             return new
     
     def _background_routine(self):

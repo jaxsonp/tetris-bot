@@ -1,0 +1,1 @@
+from tetris_bot_player.__main__ import main as main
